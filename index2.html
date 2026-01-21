@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Path Finder</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 10px; }
+        .controls { margin-bottom: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        select, input, button { padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        button { background-color: #28a745; color: white; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #218838; }
+        #map-wrapper { position: relative; display: inline-block; border: 2px solid #333; }
+        canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+        img { display: block; max-width: 100%; height: auto; }
+        .legend { margin-top: 10px; font-size: 0.9em; }
+        .dot-green { color: green; font-weight: bold; } .dot-red { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>College Navigation System</h2>
+    
+    <div class="controls">
+        <label>Start:</label>
+        <select id="startNode">
+                        <option value="v1">V1</option>
+            <option value="v4">V4</option>
+            <option value="v11">V11</option>
+        </select>
+
+        <label>Destination:</label>
+        <input type="text" id="destInput" placeholder="Enter Room (e.g. 101)">
+
+        <button onclick="findAndDrawPath()">Show Path</button>
+    </div>
+
+    <div id="map-wrapper">
+        <img id="floorPlan" src="map.jpg" alt="College Map">
+        <canvas id="overlayCanvas"></canvas>
+    </div>
+
+    <div class="legend">
+        <span class="dot-green">● Ground Floor</span> | <span class="dot-red">● First Floor</span>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. DATA INJECTION (Auto-Generated)
+    // ==========================================
+    
+    const nodes = {
+    "v1": {
+        "x": 558,
+        "y": 338,
+        "floor": 0
+    },
+    "v2": {
+        "x": 558,
+        "y": 541,
+        "floor": 0
+    },
+    "v3": {
+        "x": 570,
+        "y": 800,
+        "floor": 0
+    },
+    "v4": {
+        "x": 572,
+        "y": 1039,
+        "floor": 0
+    },
+    "v5": {
+        "x": 324,
+        "y": 800,
+        "floor": 0
+    },
+    "v6": {
+        "x": 786,
+        "y": 800,
+        "floor": 0
+    },
+    "v7": {
+        "x": 1062,
+        "y": 800,
+        "floor": 0
+    },
+    "v8": {
+        "x": 1274,
+        "y": 800,
+        "floor": 0
+    },
+    "v9": {
+        "x": 1047,
+        "y": 570,
+        "floor": 0
+    },
+    "v10": {
+        "x": 1072,
+        "y": 1040,
+        "floor": 0
+    },
+    "v11": {
+        "x": 1050,
+        "y": 1290,
+        "floor": 0
+    }
+};
+
+    const adjacency = {
+    "v1": [
+        "v2"
+    ],
+    "v2": [
+        "v1",
+        "v3"
+    ],
+    "v3": [
+        "v2",
+        "v5",
+        "v4",
+        "v6"
+    ],
+    "v4": [
+        "v3"
+    ],
+    "v5": [
+        "v3"
+    ],
+    "v6": [
+        "v3",
+        "v7"
+    ],
+    "v7": [
+        "v6",
+        "v9",
+        "v8",
+        "v10"
+    ],
+    "v8": [
+        "v7"
+    ],
+    "v9": [
+        "v7"
+    ],
+    "v10": [
+        "v7",
+        "v11"
+    ],
+    "v11": [
+        "v11"
+    ]
+};
+
+    // ==========================================
+    // 2. PATHFINDING LOGIC
+    // ==========================================
+
+    function findAndDrawPath() {
+        const startId = document.getElementById('startNode').value;
+        const destInput = document.getElementById('destInput').value.toLowerCase().trim();
+        
+        if (!nodes[destInput]) {
+            alert("Destination not found! Please check spelling.");
+            return;
+        }
+
+        const path = dijkstra(startId, destInput);
+        if (path) {
+            drawPathOnCanvas(path);
+        } else {
+            alert("No path found. Check your map connections.");
+        }
+    }
+
+    function dijkstra(start, end) {
+        let distances = {}, previous = {}, unvisited = new Set();
+        for (let node in nodes) { distances[node] = Infinity; unvisited.add(node); }
+        distances[start] = 0;
+
+        while (unvisited.size > 0) {
+            let current = null, minDist = Infinity;
+            for (let node of unvisited) {
+                if (distances[node] < minDist) { minDist = distances[node]; current = node; }
+            }
+            if (current === null || current === end) break;
+            unvisited.delete(current);
+
+            if (adjacency[current]) {
+                for (let neighbor of adjacency[current]) {
+                    if (unvisited.has(neighbor)) {
+                        let dist = getDistance(nodes[current], nodes[neighbor]);
+                        let newDist = distances[current] + dist;
+                        if (newDist < distances[neighbor]) {
+                            distances[neighbor] = newDist;
+                            previous[neighbor] = current;
+                        }
+                    }
+                }
+            }
+        }
+
+        let path = [], curr = end;
+        while (curr) { path.unshift(curr); curr = previous[curr]; }
+        return path[0] === start ? path : null;
+    }
+
+    function getDistance(a, b) {
+        if (a.floor !== b.floor) return 500; // Stair penalty
+        return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+    }
+
+    function drawPathOnCanvas(pathIds) {
+        const img = document.getElementById('floorPlan');
+        const canvas = document.getElementById('overlayCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+        canvas.style.width = img.width + "px"; canvas.style.height = img.height + "px";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.lineWidth = 6; ctx.lineCap = "round"; ctx.setLineDash([15, 10]);
+
+        for (let i = 0; i < pathIds.length - 1; i++) {
+            let curr = nodes[pathIds[i]], next = nodes[pathIds[i+1]];
+            ctx.beginPath();
+            ctx.moveTo(curr.x, curr.y); ctx.lineTo(next.x, next.y);
+            
+            if (next.floor === 1) {
+                ctx.strokeStyle = "red";
+                if (curr.floor === 0) { drawStairIcon(ctx, curr.x, curr.y); ctx.strokeStyle = "transparent"; }
+            } else { ctx.strokeStyle = "green"; }
+            ctx.stroke();
+        }
+        drawPoint(ctx, nodes[pathIds[0]], "green");
+        drawPoint(ctx, nodes[pathIds[pathIds.length-1]], "red");
+    }
+
+    function drawPoint(ctx, node, color) {
+        ctx.beginPath(); ctx.arc(node.x, node.y, 10, 0, 2 * Math.PI);
+        ctx.fillStyle = color; ctx.fill(); ctx.strokeStyle = "white"; ctx.stroke();
+    }
+    
+    function drawStairIcon(ctx, x, y) {
+        ctx.beginPath(); ctx.rect(x-15, y-15, 30, 30);
+        ctx.fillStyle = "orange"; ctx.fill();
+        ctx.fillStyle = "white"; ctx.font = "bold 12px Arial";
+        ctx.fillText("UP", x-8, y+4);
+    }
+</script>
+</body>
+</html>
