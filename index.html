@@ -5,64 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>College Path Finder</title>
     <style>
-        /* --- CSS STYLING --- */
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; }
-        
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            border-radius: 10px;
-        }
-
-        .controls {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #e9ecef;
-            border-radius: 8px;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        input, select, button {
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-
-        button {
-            background-color: #28a745;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-        }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 10px; }
+        .controls { margin-bottom: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        select, input, button { padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        button { background-color: #28a745; color: white; cursor: pointer; font-weight: bold; }
         button:hover { background-color: #218838; }
-
-        /* MAP CONTAINER: Holds the Image and the Canvas Overlay */
-        #map-wrapper {
-            position: relative;
-            display: inline-block;
-            border: 2px solid #333;
-        }
-
-        /* Canvas must sit exactly on top of the image */
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            pointer-events: none; /* Lets clicks pass through to image if needed */
-        }
-        
+        #map-wrapper { position: relative; display: inline-block; border: 2px solid #333; }
+        canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
         img { display: block; max-width: 100%; height: auto; }
-        
-        .legend { font-size: 0.9em; margin-top: 10px; }
-        .dot-green { color: green; font-weight: bold; }
-        .dot-red { color: red; font-weight: bold; }
+        .legend { margin-top: 10px; font-size: 0.9em; }
+        .dot-green { color: green; font-weight: bold; } .dot-red { color: red; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -71,13 +24,18 @@
     <h2>College Navigation System</h2>
     
     <div class="controls">
+        <label>Start:</label>
         <select id="startNode">
-            <option value="main_gate">Main Gate</option>
-            <option value="library">Library</option>
-            <option value="ima_entrance">IMA Entrance</option>
+                        <option value="math">Math</option>
+            <option value="st1l">St1L</option>
+            <option value="st1u">St1U</option>
+            <option value="chem">Chem</option>
+            <option value="c1">C1</option>
+            <option value="principal">Principal</option>
         </select>
 
-        <input type="text" id="destInput" placeholder="Enter Room (e.g. 101, 256)">
+        <label>Destination:</label>
+        <input type="text" id="destInput" placeholder="Enter Room (e.g. 101)">
 
         <button onclick="findAndDrawPath()">Show Path</button>
     </div>
@@ -88,187 +46,186 @@
     </div>
 
     <div class="legend">
-        <span class="dot-green">● Ground Floor Path</span> | 
-        <span class="dot-red">● First Floor Path</span>
+        <span class="dot-green">● Ground Floor</span> | <span class="dot-red">● First Floor</span>
     </div>
 </div>
 
 <script>
     // ==========================================
-    // 1. THE DATA (GRAPH NODES & EDGES)
+    // 1. DATA INJECTION (Auto-Generated)
     // ==========================================
     
-    // NODES: Represents Vertices (V) in Graph Theory
-    // floor: 0 = Ground, 1 = First
     const nodes = {
-        // --- GROUND FLOOR STARTING POINTS ---
-        'main_gate':    { x: 50,  y: 450, floor: 0 },
-        'library':      { x: 200, y: 100, floor: 0 },
-        'ima_entrance': { x: 50,  y: 300, floor: 0 },
+    "math": {
+        "x": 144,
+        "y": 847,
+        "floor": 0
+    },
+    "st1l": {
+        "x": 114,
+        "y": 671,
+        "floor": 0
+    },
+    "st1u": {
+        "x": 114,
+        "y": 671,
+        "floor": 1
+    },
+    "chem": {
+        "x": 87,
+        "y": 514,
+        "floor": 1
+    },
+    "c1": {
+        "x": 71,
+        "y": 390,
+        "floor": 1
+    },
+    "principal": {
+        "x": 183,
+        "y": 383,
+        "floor": 1
+    },
+    "phy": {
+        "x": 246,
+        "y": 370,
+        "floor": 1
+    },
+    "zlgy": {
+        "x": 324,
+        "y": 368,
+        "floor": 1
+    }
+};
 
-        // --- JUNCTIONS (Invisible nodes for walking paths) ---
-        'junc_hall_A':  { x: 150, y: 300, floor: 0 }, // A hallway intersection
-        'stair_bottom': { x: 400, y: 300, floor: 0 }, // Base of stairs
-
-        // --- FIRST FLOOR NODES ---
-        'stair_top':    { x: 400, y: 300, floor: 1 }, // Top of stairs (Same X,Y as bottom!)
-        'junc_hall_B':  { x: 500, y: 300, floor: 1 }, 
-        
-        // --- DESTINATIONS ---
-        '101':          { x: 250, y: 300, floor: 0 }, // Ground floor room
-        '256':          { x: 600, y: 200, floor: 1 }, // First floor room
-        'gnr hall':     { x: 700, y: 400, floor: 1 }  // First floor hall
-    };
-
-    // EDGES: Represents Connections in Graph Theory (Adjacency List)
-    // Use bidirectional logic (if A->B, then B->A)
     const adjacency = {
-        'main_gate':    ['junc_hall_A'],
-        'ima_entrance': ['junc_hall_A'],
-        'junc_hall_A':  ['main_gate', 'ima_entrance', '101', 'stair_bottom', 'library'],
-        'library':      ['junc_hall_A'],
-        '101':          ['junc_hall_A'],
-        
-        // The Magic Connection: Ground to First Floor
-        'stair_bottom': ['junc_hall_A', 'stair_top'], 
-        'stair_top':    ['stair_bottom', 'junc_hall_B'],
-        
-        'junc_hall_B':  ['stair_top', '256', 'gnr hall'],
-        '256':          ['junc_hall_B'],
-        'gnr hall':     ['junc_hall_B']
-    };
+    "math": [
+        "st1l"
+    ],
+    "st1l": [
+        "math",
+        "st1u"
+    ],
+    "st1u": [
+        "st1l",
+        "chem"
+    ],
+    "chem": [
+        "st1u",
+        "c1"
+    ],
+    "c1": [
+        "chem",
+        "principal"
+    ],
+    "principal": [
+        "c1",
+        "phy"
+    ],
+    "phy": [
+        "principal",
+        "zlgy"
+    ],
+    "zlgy": [
+        "principal"
+    ]
+};
 
     // ==========================================
-    // 2. THE ALGORITHM (BFS PATHFINDING)
+    // 2. PATHFINDING LOGIC
     // ==========================================
 
     function findAndDrawPath() {
-        // Get Inputs
         const startId = document.getElementById('startNode').value;
         const destInput = document.getElementById('destInput').value.toLowerCase().trim();
         
-        // 1. Validate Destination
         if (!nodes[destInput]) {
-            alert("Destination not found! Try '101', '256', or 'gnr hall'");
+            alert("Destination not found! Please check spelling.");
             return;
         }
 
-        // 2. Run BFS (Breadth-First Search)
-        const path = bfs(startId, destInput);
-
-        // 3. Draw Result
+        const path = dijkstra(startId, destInput);
         if (path) {
             drawPathOnCanvas(path);
         } else {
-            alert("No path found between these points.");
+            alert("No path found. Check your map connections.");
         }
     }
 
-    // Standard BFS Algorithm to find shortest path in unweighted graph
-    function bfs(start, end) {
-        let queue = [[start]];
-        let visited = new Set();
-        visited.add(start);
+    function dijkstra(start, end) {
+        let distances = {}, previous = {}, unvisited = new Set();
+        for (let node in nodes) { distances[node] = Infinity; unvisited.add(node); }
+        distances[start] = 0;
 
-        while (queue.length > 0) {
-            let path = queue.shift();
-            let node = path[path.length - 1];
+        while (unvisited.size > 0) {
+            let current = null, minDist = Infinity;
+            for (let node of unvisited) {
+                if (distances[node] < minDist) { minDist = distances[node]; current = node; }
+            }
+            if (current === null || current === end) break;
+            unvisited.delete(current);
 
-            if (node === end) return path;
-
-            if (adjacency[node]) {
-                for (let neighbor of adjacency[node]) {
-                    if (!visited.has(neighbor)) {
-                        visited.add(neighbor);
-                        let newPath = [...path, neighbor];
-                        queue.push(newPath);
+            if (adjacency[current]) {
+                for (let neighbor of adjacency[current]) {
+                    if (unvisited.has(neighbor)) {
+                        let dist = getDistance(nodes[current], nodes[neighbor]);
+                        let newDist = distances[current] + dist;
+                        if (newDist < distances[neighbor]) {
+                            distances[neighbor] = newDist;
+                            previous[neighbor] = current;
+                        }
                     }
                 }
             }
         }
-        return null;
+
+        let path = [], curr = end;
+        while (curr) { path.unshift(curr); curr = previous[curr]; }
+        return path[0] === start ? path : null;
     }
 
-    // ==========================================
-    // 3. THE VISUALIZATION (CANVAS DRAWING)
-    // ==========================================
+    function getDistance(a, b) {
+        if (a.floor !== b.floor) return 500; // Stair penalty
+        return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+    }
 
     function drawPathOnCanvas(pathIds) {
         const img = document.getElementById('floorPlan');
         const canvas = document.getElementById('overlayCanvas');
         const ctx = canvas.getContext('2d');
-
-        // Match canvas size to image size strictly
-        canvas.width = img.naturalWidth; 
-        canvas.height = img.naturalHeight;
         
-        // Scale canvas visually to fit screen if needed
-        canvas.style.width = img.width + "px";
-        canvas.style.height = img.height + "px";
-
+        canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+        canvas.style.width = img.width + "px"; canvas.style.height = img.height + "px";
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Drawing Settings
-        ctx.lineWidth = 6;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.setLineDash([15, 10]); // Dotted Effect (15px line, 10px gap)
+        ctx.lineWidth = 6; ctx.lineCap = "round"; ctx.setLineDash([15, 10]);
 
-        // Loop through path and draw segments
         for (let i = 0; i < pathIds.length - 1; i++) {
-            let currNode = nodes[pathIds[i]];
-            let nextNode = nodes[pathIds[i+1]];
-
+            let curr = nodes[pathIds[i]], next = nodes[pathIds[i+1]];
             ctx.beginPath();
-            ctx.moveTo(currNode.x, currNode.y);
-            ctx.lineTo(nextNode.x, nextNode.y);
-
-            // COLOR LOGIC:
-            // If the destination of this segment is on Floor 1, use RED.
-            // Otherwise (Floor 0), use GREEN.
+            ctx.moveTo(curr.x, curr.y); ctx.lineTo(next.x, next.y);
             
-            if (nextNode.floor === 1) {
+            if (next.floor === 1) {
                 ctx.strokeStyle = "red";
-                
-                // Special case: If jumping from stair_bottom to stair_top
-                // Draw nothing (or a circle) because distance is 0 pixels
-                if (currNode.floor === 0) {
-                   drawStairIcon(ctx, currNode.x, currNode.y);
-                   ctx.strokeStyle = "transparent"; // Don't draw line for floor jump
-                }
-            } else {
-                ctx.strokeStyle = "green";
-            }
-
+                if (curr.floor === 0) { drawStairIcon(ctx, curr.x, curr.y); ctx.strokeStyle = "transparent"; }
+            } else { ctx.strokeStyle = "green"; }
             ctx.stroke();
         }
-        
-        // Draw Start and End Circles
         drawPoint(ctx, nodes[pathIds[0]], "green");
         drawPoint(ctx, nodes[pathIds[pathIds.length-1]], "red");
     }
-    
-    function drawPoint(ctx, node, color) {
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, 10, 0, 2 * Math.PI);
-        ctx.fillStyle = color;
-        ctx.fill();
-        ctx.setLineDash([]); // Reset dash for circle border
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-    }
 
+    function drawPoint(ctx, node, color) {
+        ctx.beginPath(); ctx.arc(node.x, node.y, 10, 0, 2 * Math.PI);
+        ctx.fillStyle = color; ctx.fill(); ctx.strokeStyle = "white"; ctx.stroke();
+    }
+    
     function drawStairIcon(ctx, x, y) {
-        ctx.beginPath();
-        ctx.rect(x-15, y-15, 30, 30);
-        ctx.fillStyle = "orange";
-        ctx.fill();
-        ctx.fillStyle = "white";
-        ctx.font = "12px Arial";
+        ctx.beginPath(); ctx.rect(x-15, y-15, 30, 30);
+        ctx.fillStyle = "orange"; ctx.fill();
+        ctx.fillStyle = "white"; ctx.font = "bold 12px Arial";
         ctx.fillText("UP", x-8, y+4);
     }
 </script>
-
 </body>
 </html>
